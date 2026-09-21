@@ -1,1 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>空氣品質監測</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+</head>
+<body>
+<!-- Header -->
+  <header class="site-header">
+    <nav class="navbar">
+      <div class="navbar-title">全台空氣品質即時監測</div>
+      <div class="navbar-links">
+        <a href="#map-section">地圖</a>
+        <a href="#list-section">測站列表</a>
+      </div>
+    </nav>
+  </header>
+<!-- Main -->
+  <main>
+    <!-- map -->
+    <section id="map-section">
+      <h2 class="section-title">即時空氣品質地圖</h2>
+      <div class="indicator-bar" id="indicator-bar">
+        <button class="indicator-btn active" data-indicator="aqi">AQI</button>
+        <button class="indicator-btn" data-indicator="pm2.5">PM2.5</button>
+        <button class="indicator-btn" data-indicator="pm10">PM10</button>
+        <button class="indicator-btn" data-indicator="o3">O3</button>
+        <button class="indicator-btn" data-indicator="so2">SO2</button>
+        <button class="indicator-btn" data-indicator="no2">NO2</button>
+        <button class="indicator-btn" data-indicator="co">CO</button>
+      </div>
 
+      <div id="map"></div>
+    </section>
+    <!-- 搜尋列表區塊 -->
+    <section id="filter-section">
+    <h2 class="section-title">測站列表</h2>
+    <div class="filter-bar">
+        <label class="filter-label">
+        縣市:
+        <select id="county-select">
+            <option value="全部">全部縣市</option>
+        </select>
+        </label>
+        <label class="filter-label">
+        測站:
+        <input type="text" id="search-input" placeholder="搜尋測站名稱">
+        </label>
+    </div>
+    </section>
+    <!-- Station List -->
+    <section id="list-section">
+    <div id="station-list"></div>
+    <div id="empty-message" class="empty-message" style="display: none;">查無符合的測站</div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>資料來源:<a href="https://data.moenv.gov.tw/dataset/detail/aqx_p_432" target="_blank">環境部環境資料開放平臺</a></p>
+    <p>wehelp_group_5 製作</p>
+  </footer>
+
+  <script src="/static/js/config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/index.js"></script>
+
+</body>
+</html>
