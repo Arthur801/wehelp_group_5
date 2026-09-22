@@ -30,6 +30,13 @@ HTML5 / JavaScript
 /api
 ```
 
+### 成功／失敗旗標
+
+所有 API 回應都會在最外層帶一個 boolean 旗標，方便前端統一判斷：
+
+- HTTP 狀態碼為 `200` 時，回應 body 一定包含 `"ok": true`。
+- HTTP 狀態碼非 `200`（`400`、`404`、`422`、未預期的 `500`）時，回應 body 一定包含 `"error": true`，並附上 `detail` 說明錯誤內容。
+
 ---
 
 ## 2. 政府來源資料欄位
@@ -111,6 +118,7 @@ GET /api/air-quality/latest?county=臺中市
 
 ```json
 {
+  "ok": true,
   "county": "臺中市",
   "data": [
     {
@@ -150,6 +158,7 @@ GET /api/air-quality/latest?county=臺中市
 
 ```json
 {
+  "error": true,
   "detail": "Air quality data not found"
 }
 ```
@@ -185,6 +194,7 @@ GET /api/air-quality/history?siteid=32&metric=pm2.5&range=24h
 
 ```json
 {
+  "ok": true,
   "siteid": 32,
   "sitename": "西屯",
   "county": "臺中市",
@@ -220,6 +230,7 @@ data[].value → Y 軸
 
 ```json
 {
+  "error": true,
   "detail": "Invalid metric"
 }
 ```
@@ -232,9 +243,32 @@ data[].value → Y 軸
 
 ```json
 {
+  "error": true,
   "detail": "Monitoring station not found"
 }
 ```
+
+缺少必填參數（`siteid`／`metric`／`range` 任一未帶）：
+
+```text
+422 Unprocessable Entity
+```
+
+```json
+{
+  "error": true,
+  "detail": [
+    {
+      "type": "missing",
+      "loc": ["query", "siteid"],
+      "msg": "Field required",
+      "input": null
+    }
+  ]
+}
+```
+
+> `detail` 陣列格式為 FastAPI 標準的請求驗證錯誤格式，內容依實際缺漏或錯誤的參數而定。
 
 ---
 
@@ -266,6 +300,7 @@ GET /api/regions
 
 ```json
 {
+  "ok": true,
   "regions": [
     {
       "county": "臺中市",
@@ -318,6 +353,7 @@ GET /api/metrics
 
 ```json
 {
+  "ok": true,
   "metrics": [
     {"id": "aqi", "name": "AQI"},
     {"id": "so2", "name": "SO2"},
