@@ -8,18 +8,21 @@
 </head>
 <body>
 <!-- Header -->
-  <header class="site-header">
-    <nav class="navbar">
-      <div class="navbar-title">全台空氣品質即時監測</div>
-      <div class="navbar-links">
-        <a href="#map-section">地圖</a>
-        <a href="#list-section">測站列表</a>
-      </div>
-    </nav>
-  </header>
+<header class="site-header">
+  <nav class="navbar">
+    <div class="navbar-title">全台空氣品質即時監測</div>
+    <button class="navbar-toggle" id="navbar-toggle" aria-label="開啟選單">☰</button>
+    <div class="navbar-links" id="navbar-links">
+      <a href="#map-section">地圖</a>
+      <a href="#filter-section">測站列表</a>
+      <a href="#chart-section">歷史趨勢圖</a>
+    </div>
+  </nav>
+</header>
 <!-- Main -->
   <main>
     <!-- map -->
+    <div id="status-message" class="status-message hidden"></div>
     <section id="map-section">
       <h2 class="section-title">即時空氣品質地圖</h2>
       <div class="indicator-bar" id="indicator-bar">
@@ -54,9 +57,48 @@
     <section id="list-section">
     <div id="station-list"></div>
     <div id="empty-message" class="empty-message" style="display: none;">查無符合的測站</div>
+    <button id="load-more-btn" class="load-more-btn">顯示更多</button>
     </section>
-  </main>
+    <!-- 趨勢圖 -->
+    <section id="chart-section">
 
+    <h2 class="section-title">歷史趨勢圖</h2>
+    <div class="chart-section">
+    <div class="chart-controls">
+    <label class="filter-label">
+        縣市:
+        <select id="chart-county-select"></select>
+    </label>
+    <label class="filter-label">
+        測站:
+        <select id="chart-station-select"></select>
+    </label>
+    <label class="filter-label">
+        指標:
+        <select id="chart-metric-select">
+        <option value="aqi">AQI</option>
+        <option value="pm2.5">PM2.5</option>
+        <option value="pm10">PM10</option>
+        <option value="o3">O3</option>
+        <option value="so2">SO2</option>
+        <option value="no2">NO2</option>
+        <option value="co">CO</option>
+        </select>
+    </label>
+    <div class="chart-range-buttons">
+        <button class="indicator-btn range-btn active" data-range="24h">24小時</button>
+        <button class="indicator-btn range-btn" data-range="48h">48小時</button>
+        <button class="indicator-btn range-btn" data-range="72h">72小時</button>
+    </div>
+    </div>
+    <div class="chart-canvas-wrapper">
+        <canvas id="history-chart"></canvas>
+    </div>
+    <div id="chart-status" class="status-message hidden"></div>
+    </div>
+    </section>
+
+  </main>
   <footer class="site-footer">
     <p>資料來源:<a href="https://data.moenv.gov.tw/dataset/detail/aqx_p_432" target="_blank">環境部環境資料開放平臺</a></p>
     <p>wehelp_group_5 製作</p>
@@ -65,6 +107,8 @@
   <script src="/static/js/config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   <script src="/static/js/map.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="/static/js/chart.js"></script>
   <script src="/static/js/index.js"></script>
 
 </body>
