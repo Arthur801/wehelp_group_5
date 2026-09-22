@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping  # noqa: UP035
+from typing import Any, Literal, Mapping  # noqa: UP035
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +35,7 @@ class AirQualityRecord(BaseModel):
 
 
 class LatestAirQualityResponse(BaseModel):
+    ok: Literal[True] = True
     county: str | None
     data: list[AirQualityRecord]
 
@@ -50,6 +51,7 @@ class Region(BaseModel):
 
 
 class RegionsResponse(BaseModel):
+    ok: Literal[True] = True
     regions: list[Region]
 
 
@@ -59,6 +61,7 @@ class Metric(BaseModel):
 
 
 class MetricsResponse(BaseModel):
+    ok: Literal[True] = True
     metrics: list[Metric]
 
 
@@ -68,6 +71,7 @@ class HistoryDataPoint(BaseModel):
 
 
 class AirQualityHistoryResponse(BaseModel):
+    ok: Literal[True] = True
     siteid: int
     sitename: str
     county: str
