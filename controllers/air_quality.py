@@ -4,8 +4,10 @@ from fastapi import APIRouter, HTTPException, Query
 
 from models.air_quality import (
     LatestAirQualityResponse,
+    MetricsResponse,
     RegionsResponse,
     get_latest_air_quality,
+    get_metrics,
     get_regions,
 )
 
@@ -30,3 +32,8 @@ def latest_air_quality(
 @router.get("/regions", response_model=RegionsResponse, tags=["regions"])
 def regions() -> RegionsResponse:
     return get_regions()
+
+
+@router.get("/metrics", response_model=MetricsResponse, tags=["metrics"])
+def metrics() -> MetricsResponse:
+    return get_metrics()

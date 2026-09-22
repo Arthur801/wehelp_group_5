@@ -56,6 +56,33 @@ class RegionsResponse(BaseModel):
     regions: list[Region]
 
 
+class Metric(BaseModel):
+    id: str
+    name: str
+
+
+class MetricsResponse(BaseModel):
+    metrics: list[Metric]
+
+
+METRIC_DEFINITIONS = (
+    ("aqi", "AQI"),
+    ("so2", "SO2"),
+    ("co", "CO"),
+    ("o3", "O3"),
+    ("o3_8hr", "O3 8hr"),
+    ("pm10", "PM10"),
+    ("pm2.5", "PM2.5"),
+    ("no2", "NO2"),
+    ("nox", "NOx"),
+    ("no", "NO"),
+    ("co_8hr", "CO 8hr"),
+    ("pm2.5_avg", "PM2.5 AVG"),
+    ("pm10_avg", "PM10 AVG"),
+    ("so2_avg", "SO2 AVG"),
+)
+
+
 def _read_air_quality_data() -> list[dict[str, Any]]:
     with DATA_FILE.open(encoding="utf-8") as file:
         return json.load(file)
@@ -166,3 +193,12 @@ def get_regions() -> RegionsResponse:
         for county, sites in sorted(sites_by_county.items())
     ]
     return RegionsResponse(regions=regions)
+
+
+def get_metrics() -> MetricsResponse:
+    return MetricsResponse(
+        metrics=[
+            Metric(id=metric_id, name=name)
+            for metric_id, name in METRIC_DEFINITIONS
+        ]
+    )
