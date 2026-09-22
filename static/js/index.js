@@ -2,7 +2,7 @@ let allStations = [];
 let currentFiltered = [];
 let visibleCount = 12;
 const PAGE_SIZE = 12;
-//抓資料
+//抓測站資料
 async function fetchStations() {
   const latestRes = await fetch("/api/air-quality/latest");
   if (!latestRes.ok) throw new Error("無法取得最新空氣品質資料");
@@ -37,6 +37,14 @@ function getLevelInfo(aqiRaw) {
   if (aqi <= 300) return { color: "#993C1D" };
   return { color: "#5C1A0F" };
 }
+// 時間
+function formatDateTime(isoString) {
+  const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return isoString;
+  const [, year, month, day, hour, minute] = match;
+  return `${year}/${month}/${day} ${hour}:${minute}`;
+}
+
 //渲染畫面
 function render(stations) {
     currentFiltered = stations;
@@ -63,8 +71,7 @@ function render(stations) {
 
     const timeDiv = document.createElement("div");
     timeDiv.className = "station-time";
-    timeDiv.textContent = new Date(station.publishtime).toLocaleString("zh-TW", { hour12: false, timeZone: "Asia/Taipei" });
-
+    timeDiv.textContent = formatDateTime(station.publishtime);
     const nameDiv = document.createElement("div");
     nameDiv.className = "station-name";
     nameDiv.textContent = `${station.county} . ${station.sitename}`;
@@ -161,6 +168,7 @@ function applyFilters() {
   render(result);
 }
 
+//初始化
 async function init() {
   showStatus("資料載入中...", false);
 
@@ -182,21 +190,21 @@ async function init() {
   loadChart();
 }
 
-
 init();
 
+//載入更多按鈕
 document.querySelector("#load-more-btn").addEventListener("click", () => {
   visibleCount += PAGE_SIZE;
   render(currentFiltered);
 });
-
+//手機版導覽選單開關
 document.querySelector("#navbar-toggle").addEventListener("click", () => {
   const links = document.querySelector("#navbar-links");
   const toggle = document.querySelector("#navbar-toggle");
   links.classList.toggle("open");
   toggle.textContent = links.classList.contains("open") ? "✕" : "☰";
 });
-
+////顯示狀態訊息：載入中或錯誤時使用，isError為true會多顯示一個「重新整理」按鈕
 function showStatus(message, isError) {
   const status = document.querySelector("#status-message");
   status.innerHTML = "";
@@ -215,7 +223,7 @@ function showStatus(message, isError) {
     status.appendChild(retryBtn);
   }
 }
-
+//隱藏狀態訊息：資料載入成功後呼叫，把提示區塊藏起來
 function hideStatus() {
   document.querySelector("#status-message").classList.add("hidden");
 }

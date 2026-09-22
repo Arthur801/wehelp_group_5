@@ -42,18 +42,16 @@ async function fetchHistory(siteid, metric, range) {
   return res.json();
 }
 
+function formatChartTime(isoString) {
+  const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return isoString;
+  const [, , month, day, hour, minute] = match;
+  return `${month}/${day} ${hour}:${minute}`;
+}
+
 function renderChart(historyData) {
   const canvas = document.querySelector("#history-chart");
-  const labels = historyData.data.map(point =>
-    new Date(point.time).toLocaleString("zh-TW", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Taipei"
-    })
-  );
+  const labels = historyData.data.map(point => formatChartTime(point.time));
   const values = historyData.data.map(point => point.value);
 
   if (currentChart) {
