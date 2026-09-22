@@ -10,7 +10,7 @@
 
 系統架構：
 
-``` text
+```text
 政府空氣品質資料
         ↓
    FastAPI 定期取得
@@ -26,58 +26,62 @@ HTML5 / JavaScript
 
 ### Base URL
 
-``` text
+```text
 /api
 ```
 
-------------------------------------------------------------------------
+---
 
 ## 2. 政府來源資料欄位
 
 實際 JSON 中的欄位如下：
 
-  欄位            說明
-  --------------- ------------------
-  `siteid`        監測站 ID
-  `sitename`      監測站名稱
-  `county`        縣市
-  `aqi`           空氣品質指標 AQI
-  `pollutant`     主要污染物
-  `status`        空氣品質狀態
-  `so2`           二氧化硫
-  `co`            一氧化碳
-  `o3`            臭氧
-  `o3_8hr`        臭氧 8 小時平均
-  `pm10`          PM10
-  `pm2.5`         PM2.5
-  `no2`           二氧化氮
-  `nox`           氮氧化物
-  `no`            一氧化氮
-  `wind_speed`    風速
-  `wind_direc`    風向
-  `publishtime`   資料發布時間
-  `co_8hr`        CO 8 小時平均
-  `pm2.5_avg`     PM2.5 平均值
-  `pm10_avg`      PM10 平均值
-  `so2_avg`       SO2 平均值
-  `longitude`     經度
-  `latitude`      緯度
+欄位            說明
+
+---
+
+`siteid`        監測站 ID
+`sitename`      監測站名稱
+`county`        縣市
+`aqi`           空氣品質指標 AQI
+`pollutant`     主要污染物
+`status`        空氣品質狀態
+`so2`           二氧化硫
+`co`            一氧化碳
+`o3`            臭氧
+`o3_8hr`        臭氧 8 小時平均
+`pm10`          PM10
+`pm2.5`         PM2.5
+`no2`           二氧化氮
+`nox`           氮氧化物
+`no`            一氧化氮
+`wind_speed`    風速
+`wind_direc`    風向
+`publishtime`   資料發布時間
+`co_8hr`        CO 8 小時平均
+`pm2.5_avg`     PM2.5 平均值
+`pm10_avg`      PM10 平均值
+`so2_avg`       SO2 平均值
+`longitude`     經度
+`latitude`      緯度
 
 > 原始政府 JSON 的數值欄位以字串表示，且部分欄位可能出現空字串或
 > `-`。匯入 MySQL 時應先進行型別轉換與缺失值處理。
 
-------------------------------------------------------------------------
+---
 
 ## 3. API 一覽
 
-  Method   Endpoint                     用途
-  -------- ---------------------------- ------------------------------
-  GET      `/api/air-quality/latest`    查詢測站最新空氣品質資料
-  GET      `/api/air-quality/history`   查詢指定測站與指標的歷史資料
-  GET      `/api/regions`               取得縣市與其監測站
-  GET      `/api/metrics`               取得可用於圖表的空氣品質指標
+Method   Endpoint                     用途
 
-------------------------------------------------------------------------
+---
+
+GET      `/api/air-quality/latest`    查詢測站最新空氣品質資料
+GET      `/api/air-quality/history`   查詢指定測站與指標的歷史資料
+GET      `/api/regions`               取得縣市與其監測站
+GET      `/api/metrics`               取得可用於圖表的空氣品質指標
+
+---
 
 # 4. 最新空氣品質
 
@@ -90,20 +94,22 @@ HTML5 / JavaScript
 
 ### Query Parameters
 
-  Parameter   Type      Required   說明
-  ----------- --------- ---------- ----------------------
-  `county`    string    No         縣市，例如 `臺中市`
-  `siteid`    integer   No         監測站 ID，例如 `32`
+Parameter   Type      Required   說明
+
+---
+
+`county`    string    No         縣市，例如 `臺中市`
+`siteid`    integer   No         監測站 ID，例如 `32`
 
 ### Request
 
-``` http
+```http
 GET /api/air-quality/latest?county=臺中市
 ```
 
 ### Response
 
-``` json
+```json
 {
   "county": "臺中市",
   "data": [
@@ -138,17 +144,17 @@ GET /api/air-quality/latest?county=臺中市
 
 ### Error
 
-``` text
+```text
 404 Not Found
 ```
 
-``` json
+```json
 {
   "detail": "Air quality data not found"
 }
 ```
 
-------------------------------------------------------------------------
+---
 
 # 5. 歷史空氣品質
 
@@ -161,21 +167,23 @@ GET /api/air-quality/latest?county=臺中市
 
 ### Query Parameters
 
-  Parameter   Type      Required   說明
-  ----------- --------- ---------- -----------------------------------
-  `siteid`    integer   Yes        監測站 ID
-  `metric`    string    Yes        要查詢的指標
-  `range`     string    Yes        時間範圍，例如 `24h`、`7d`、`30d`
+Parameter   Type      Required   說明
+
+---
+
+`siteid`    integer   Yes        監測站 ID
+`metric`    string    Yes        要查詢的指標
+`range`     string    Yes        時間範圍，目前支援 `24h`、`48h`、`72h`
 
 ### Request
 
-``` http
+```http
 GET /api/air-quality/history?siteid=32&metric=pm2.5&range=24h
 ```
 
 ### Response
 
-``` json
+```json
 {
   "siteid": 32,
   "sitename": "西屯",
@@ -197,7 +205,7 @@ GET /api/air-quality/history?siteid=32&metric=pm2.5&range=24h
 
 前端圖表：
 
-``` text
+```text
 data[].time  → X 軸
 data[].value → Y 軸
 ```
@@ -206,11 +214,11 @@ data[].value → Y 軸
 
 不支援的指標：
 
-``` text
+```text
 400 Bad Request
 ```
 
-``` json
+```json
 {
   "detail": "Invalid metric"
 }
@@ -218,17 +226,17 @@ data[].value → Y 軸
 
 找不到監測站：
 
-``` text
+```text
 404 Not Found
 ```
 
-``` json
+```json
 {
   "detail": "Monitoring station not found"
 }
 ```
 
-------------------------------------------------------------------------
+---
 
 # 6. 地區與監測站
 
@@ -238,7 +246,7 @@ data[].value → Y 軸
 
 這個 API 主要提供前端的兩層選單：
 
-``` text
+```text
 縣市
  ↓
 監測站
@@ -250,13 +258,13 @@ data[].value → Y 軸
 
 ### Request
 
-``` http
+```http
 GET /api/regions
 ```
 
 ### Response Example
 
-``` json
+```json
 {
   "regions": [
     {
@@ -288,7 +296,7 @@ GET /api/regions
 }
 ```
 
-------------------------------------------------------------------------
+---
 
 # 7. 空氣品質指標
 
@@ -302,13 +310,13 @@ GET /api/regions
 
 ### Request
 
-``` http
+```http
 GET /api/metrics
 ```
 
 ### Response
 
-``` json
+```json
 {
   "metrics": [
     {"id": "aqi", "name": "AQI"},
@@ -333,11 +341,11 @@ GET /api/metrics
 > 中明確屬於空氣品質數值的欄位列為圖表指標。各污染物的單位沒有在提供的
 > JSON 中出現，因此本文件不自行推測單位。
 
-------------------------------------------------------------------------
+---
 
 # 8. 前端操作流程
 
-``` text
+```text
 GET /api/regions
         ↓
 選擇縣市
@@ -359,7 +367,7 @@ GET /api/air-quality/history
 
 首頁即時資訊則可以：
 
-``` text
+```text
 GET /api/air-quality/latest?county=臺中市
         ↓
 取得臺中市各監測站最新資料
@@ -367,7 +375,7 @@ GET /api/air-quality/latest?county=臺中市
 顯示 AQI / status / pollutant 等資訊
 ```
 
-------------------------------------------------------------------------
+---
 
 # 9. 資料處理注意事項
 
@@ -375,7 +383,7 @@ GET /api/air-quality/latest?county=臺中市
 
 提供的來源資料中，例如：
 
-``` json
+```json
 {
   "aqi": "60",
   "pm2.5": "24",
@@ -388,7 +396,7 @@ GET /api/air-quality/latest?county=臺中市
 系統匯入 MySQL 時應轉換成適當的數值型別，自己的 API 再以 JSON number
 回傳：
 
-``` json
+```json
 {
   "aqi": 60,
   "pm2.5": 24,
@@ -400,7 +408,7 @@ GET /api/air-quality/latest?county=臺中市
 
 來源資料確實存在：
 
-``` json
+```json
 {
   "wind_speed": "",
   "wind_direc": ""
@@ -409,7 +417,7 @@ GET /api/air-quality/latest?county=臺中市
 
 以及：
 
-``` json
+```json
 {
   "wind_speed": "-",
   "wind_direc": "-"
@@ -418,7 +426,7 @@ GET /api/air-quality/latest?county=臺中市
 
 因此建議匯入資料庫時統一轉換為 `NULL`，自己的 API 則回傳：
 
-``` json
+```json
 {
   "wind_speed": null,
   "wind_direc": null
@@ -429,23 +437,23 @@ GET /api/air-quality/latest?county=臺中市
 
 政府來源：
 
-``` text
+```text
 2026/09/22 08:00:00
 ```
 
 建議資料庫使用 DATETIME，API 統一輸出 ISO 8601：
 
-``` text
+```text
 2026-09-22T08:00:00
 ```
 
-------------------------------------------------------------------------
+---
 
 # 10. 第一版 API 邊界
 
 目前四個 API 的責任可以明確區分為：
 
-``` text
+```text
 /api/regions
     → 有哪些縣市與測站？
 

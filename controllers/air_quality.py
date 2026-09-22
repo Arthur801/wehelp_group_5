@@ -3,9 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from models.air_quality import (
+    METRIC_COLUMNS,
+    RANGE_DELTAS,
+    AirQualityHistoryResponse,
     LatestAirQualityResponse,
     MetricsResponse,
     RegionsResponse,
+    get_air_quality_history,
     get_latest_air_quality,
     get_metrics,
     get_regions,
@@ -26,6 +30,34 @@ def latest_air_quality(
     result = get_latest_air_quality(county=county, siteid=siteid)
     if result is None:
         raise HTTPException(status_code=404, detail="Air quality data not found")
+    return result
+
+
+@router.get(
+    "/air-quality/history",
+    response_model=AirQualityHistoryResponse,
+    tags=["air-quality"],
+)
+def air_quality_history(
+    siteid: Annotated[int, Query()],
+    metric: Annotated[str, Query()],
+    range_: Annotated[str, Query(alias="range")],
+) -> AirQualityHistoryResponse:
+    if metric not in METRIC_COLUMNS:
+        raise HTTPException(status_code=400, detail="Invalid metric")
+    if range_ not in RANGE_DELTAS:
+        raise HTTPException(status_code=400, detail="Invalid range")
+
+    result = get_air_quality_history(
+        siteid=siteid,
+        metric=metric,
+        time_range=range_,
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Monitoring station not found",
+        )
     return result
 
 

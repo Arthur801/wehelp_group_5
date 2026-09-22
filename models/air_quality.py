@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping  # noqa: UP035
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -62,6 +62,20 @@ class MetricsResponse(BaseModel):
     metrics: list[Metric]
 
 
+class HistoryDataPoint(BaseModel):
+    time: datetime
+    value: float | None
+
+
+class AirQualityHistoryResponse(BaseModel):
+    siteid: int
+    sitename: str
+    county: str
+    metric: str
+    range: str
+    data: list[HistoryDataPoint]
+
+
 METRIC_DEFINITIONS = (
     ("aqi", "AQI"),
     ("so2", "SO2"),
@@ -78,6 +92,29 @@ METRIC_DEFINITIONS = (
     ("pm10_avg", "PM10 AVG"),
     ("so2_avg", "SO2 AVG"),
 )
+
+METRIC_COLUMNS = {
+    "aqi": "aqi",
+    "so2": "so2",
+    "co": "co",
+    "o3": "o3",
+    "o3_8hr": "o3_8hr",
+    "pm10": "pm10",
+    "pm2.5": "pm25",
+    "no2": "no2",
+    "nox": "nox",
+    "no": "`no`",
+    "co_8hr": "co_8hr",
+    "pm2.5_avg": "pm25_avg",
+    "pm10_avg": "pm10_avg",
+    "so2_avg": "so2_avg",
+}
+
+RANGE_DELTAS = {
+    "24h": timedelta(hours=24),
+    "48h": timedelta(hours=48),
+    "72h": timedelta(hours=72),
+}
 
 
 def _to_int(value: Any) -> int | None:
@@ -176,6 +213,64 @@ def get_latest_air_quality(
     return LatestAirQualityResponse(
         county=response_county,
         data=[_to_air_quality_record(row) for row in rows],
+    )
+
+
+def get_air_quality_history(
+    siteid: int,
+    metric: str,
+    time_range: str,
+) -> AirQualityHistoryResponse | None:
+    metric_column = METRIC_COLUMNS[metric]
+    range_delta = RANGE_DELTAS[time_range]
+
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT sitename, county, publishtime
+            FROM air_quality_records
+            WHERE siteid = %s
+            ORDER BY publishtime DESC
+            LIMIT 1
+            """,
+            (siteid,),
+        )
+        station = cursor.fetchone()
+        if station is None:
+            return None
+
+        latest_time = station["publishtime"]
+        start_time = latest_time - range_delta
+        cursor.execute(
+            f"""
+            SELECT publishtime AS time, {metric_column} AS value
+            FROM air_quality_records
+            WHERE siteid = %s
+              AND publishtime BETWEEN %s AND %s
+            ORDER BY publishtime
+            """,
+            (siteid, start_time, latest_time),
+        )
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
+
+    return AirQualityHistoryResponse(
+        siteid=siteid,
+        sitename=_to_text(station["sitename"]),
+        county=_to_text(station["county"]),
+        metric=metric,
+        range=time_range,
+        data=[
+            HistoryDataPoint(
+                time=_to_publish_time(row["time"]),
+                value=_to_float(row["value"]),
+            )
+            for row in rows
+        ],
     )
 
 
