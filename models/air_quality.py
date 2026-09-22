@@ -1,12 +1,9 @@
-import json
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from typing import Any, Mapping  # noqa: UP035
 
 from pydantic import BaseModel, ConfigDict, Field
 
-DATA_FILE = Path(__file__).resolve().parent / "fake_data" / "fake_data.json"
-PUBLISH_TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
+from models.database import get_connection
 
 
 class AirQualityRecord(BaseModel):
@@ -83,50 +80,51 @@ METRIC_DEFINITIONS = (
 )
 
 
-def _read_air_quality_data() -> list[dict[str, Any]]:
-    with DATA_FILE.open(encoding="utf-8") as file:
-        return json.load(file)
-
-
-def _parse_publish_time(value: str) -> datetime:
-    return datetime.strptime(value, PUBLISH_TIME_FORMAT).replace(tzinfo=timezone.utc)
-
-
 def _to_int(value: Any) -> int | None:
-    if value in (None, "", "-"):
+    if value is None:
         return None
     return int(float(value))
 
 
 def _to_float(value: Any) -> float | None:
-    if value in (None, "", "-"):
+    if value is None:
         return None
     return float(value)
 
 
-def _to_air_quality_record(row: dict[str, Any]) -> AirQualityRecord:
+def _to_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _to_publish_time(value: datetime) -> datetime:
+    return value.replace(tzinfo=timezone.utc)
+
+
+def _to_air_quality_record(row: Mapping[str, Any]) -> AirQualityRecord:
     return AirQualityRecord(
         siteid=_to_int(row.get("siteid")),
-        sitename=row.get("sitename", ""),
+        sitename=_to_text(row.get("sitename")),
         aqi=_to_int(row.get("aqi")),
-        pollutant=row.get("pollutant", ""),
-        status=row.get("status", ""),
+        pollutant=_to_text(row.get("pollutant")),
+        status=_to_text(row.get("status")),
         so2=_to_float(row.get("so2")),
         co=_to_float(row.get("co")),
         o3=_to_float(row.get("o3")),
         o3_8hr=_to_float(row.get("o3_8hr")),
         pm10=_to_float(row.get("pm10")),
-        pm2_5=_to_float(row.get("pm2.5")),
+        pm2_5=_to_float(row.get("pm25")),
         no2=_to_float(row.get("no2")),
         nox=_to_float(row.get("nox")),
         no=_to_float(row.get("no")),
         wind_speed=_to_float(row.get("wind_speed")),
         wind_direc=_to_float(row.get("wind_direc")),
         co_8hr=_to_float(row.get("co_8hr")),
-        pm2_5_avg=_to_float(row.get("pm2.5_avg")),
+        pm2_5_avg=_to_float(row.get("pm25_avg")),
         pm10_avg=_to_float(row.get("pm10_avg")),
         so2_avg=_to_float(row.get("so2_avg")),
-        publishtime=_parse_publish_time(row["publishtime"]),
+        publishtime=_to_publish_time(row["publishtime"]),
         longitude=_to_float(row.get("longitude")),
         latitude=_to_float(row.get("latitude")),
     )
@@ -136,61 +134,78 @@ def get_latest_air_quality(
     county: str | None = None,
     siteid: int | None = None,
 ) -> LatestAirQualityResponse | None:
-    rows = _read_air_quality_data()
+    conditions = [
+        "publishtime = (SELECT MAX(publishtime) FROM air_quality_records)"
+    ]
+    params: list[str | int] = []
+    if county is not None:
+        conditions.append("county = %s")
+        params.append(county)
+    if siteid is not None:
+        conditions.append("siteid = %s")
+        params.append(siteid)
+
+    query = f"""
+        SELECT
+            siteid, sitename, county, aqi, pollutant, status,
+            so2, co, o3, o3_8hr, pm10, pm25, no2, nox, `no`,
+            wind_speed, wind_direc, co_8hr, pm25_avg, pm10_avg,
+            so2_avg, publishtime, longitude, latitude
+        FROM air_quality_records
+        WHERE {' AND '.join(conditions)}
+        ORDER BY siteid
+    """
+
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
+
     if not rows:
         return None
 
-    latest_publish_time = max(
-        _parse_publish_time(row["publishtime"]) for row in rows
-    )
-    latest_rows = [
-        row
-        for row in rows
-        if _parse_publish_time(row["publishtime"]) == latest_publish_time
-    ]
-
-    if county is not None:
-        latest_rows = [row for row in latest_rows if row.get("county") == county]
-    if siteid is not None:
-        latest_rows = [
-            row for row in latest_rows if _to_int(row.get("siteid")) == siteid
-        ]
-
-    if not latest_rows:
-        return None
-
-    latest_rows.sort(key=lambda row: _to_int(row.get("siteid")) or 0)
-    result_counties = {row.get("county") for row in latest_rows}
+    result_counties = {row["county"] for row in rows}
     response_county = county
     if response_county is None and len(result_counties) == 1:
         response_county = result_counties.pop()
 
     return LatestAirQualityResponse(
         county=response_county,
-        data=[_to_air_quality_record(row) for row in latest_rows],
+        data=[_to_air_quality_record(row) for row in rows],
     )
 
 
 def get_regions() -> RegionsResponse:
-    sites_by_county: dict[str, dict[int, str]] = {}
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT county, siteid, MAX(sitename) AS sitename
+            FROM air_quality_records
+            WHERE county IS NOT NULL AND county <> '' AND sitename <> ''
+            GROUP BY county, siteid
+            ORDER BY county, siteid
+            """
+        )
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
 
-    for row in _read_air_quality_data():
-        county = row.get("county")
-        siteid = _to_int(row.get("siteid"))
-        sitename = row.get("sitename")
-        if not county or siteid is None or not sitename:
-            continue
-        sites_by_county.setdefault(county, {})[siteid] = sitename
+    sites_by_county: dict[str, list[RegionSite]] = {}
+    for row in rows:
+        sites_by_county.setdefault(row["county"], []).append(
+            RegionSite(siteid=row["siteid"], sitename=row["sitename"])
+        )
 
     regions = [
-        Region(
-            county=county,
-            sites=[
-                RegionSite(siteid=siteid, sitename=sites[siteid])
-                for siteid in sorted(sites)
-            ],
-        )
-        for county, sites in sorted(sites_by_county.items())
+        Region(county=county, sites=sites)
+        for county, sites in sites_by_county.items()
     ]
     return RegionsResponse(regions=regions)
 

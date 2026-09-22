@@ -1,0 +1,3 @@
+CREATE USER 'test'@'localhost' IDENTIFIED BY DB_PASSWORD;
+GRANT ALL PRIVILEGES ON air_quality.* TO 'test'@'localhost';
+FLUSH PRIVILEGES;
