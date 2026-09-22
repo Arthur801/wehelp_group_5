@@ -1,10 +1,9 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 DATA_FILE = Path(__file__).resolve().parent / "fake_data" / "fake_data.json"
 PUBLISH_TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
@@ -43,13 +42,27 @@ class LatestAirQualityResponse(BaseModel):
     data: list[AirQualityRecord]
 
 
+class RegionSite(BaseModel):
+    siteid: int
+    sitename: str
+
+
+class Region(BaseModel):
+    county: str
+    sites: list[RegionSite]
+
+
+class RegionsResponse(BaseModel):
+    regions: list[Region]
+
+
 def _read_air_quality_data() -> list[dict[str, Any]]:
     with DATA_FILE.open(encoding="utf-8") as file:
         return json.load(file)
 
 
 def _parse_publish_time(value: str) -> datetime:
-    return datetime.strptime(value, PUBLISH_TIME_FORMAT)
+    return datetime.strptime(value, PUBLISH_TIME_FORMAT).replace(tzinfo=timezone.utc)
 
 
 def _to_int(value: Any) -> int | None:
@@ -129,3 +142,27 @@ def get_latest_air_quality(
         county=response_county,
         data=[_to_air_quality_record(row) for row in latest_rows],
     )
+
+
+def get_regions() -> RegionsResponse:
+    sites_by_county: dict[str, dict[int, str]] = {}
+
+    for row in _read_air_quality_data():
+        county = row.get("county")
+        siteid = _to_int(row.get("siteid"))
+        sitename = row.get("sitename")
+        if not county or siteid is None or not sitename:
+            continue
+        sites_by_county.setdefault(county, {})[siteid] = sitename
+
+    regions = [
+        Region(
+            county=county,
+            sites=[
+                RegionSite(siteid=siteid, sitename=sites[siteid])
+                for siteid in sorted(sites)
+            ],
+        )
+        for county, sites in sorted(sites_by_county.items())
+    ]
+    return RegionsResponse(regions=regions)
