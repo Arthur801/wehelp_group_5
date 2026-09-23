@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+static/js/config.js
+
+# AI Agent
+CLAUDE.md
