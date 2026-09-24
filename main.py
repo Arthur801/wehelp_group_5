@@ -1,12 +1,26 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from controllers.air_quality import discord_notification_scheduler
 from controllers.air_quality import router as air_quality_router
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+	scheduler_task = asyncio.create_task(discord_notification_scheduler())
+	try:
+		yield
+	finally:
+		scheduler_task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(air_quality_router)
 
