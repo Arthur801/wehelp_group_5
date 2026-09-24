@@ -77,7 +77,8 @@ def metrics() -> MetricsResponse:
 
 
 TAIPEI_TZ = timezone(timedelta(hours=8))
-DISCORD_NOTIFY_MINUTE = 10
+DISCORD_NOTIFY_HOUR = 7
+DISCORD_NOTIFY_MINUTE = 5
 
 logger = logging.getLogger(__name__)
 _last_notified_publishtime: str | None = None
@@ -103,9 +104,14 @@ def run_discord_notification_job() -> None:
 
 
 def _seconds_until_next_run(now: datetime) -> float:
-    next_run = now.replace(minute=DISCORD_NOTIFY_MINUTE, second=0, microsecond=0)
+    next_run = now.replace(
+        hour=DISCORD_NOTIFY_HOUR,
+        minute=DISCORD_NOTIFY_MINUTE,
+        second=0,
+        microsecond=0,
+    )
     if next_run <= now:
-        next_run += timedelta(hours=1)
+        next_run += timedelta(days=1)
     return (next_run - now).total_seconds()
 
 

@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Mapping  # noqa: UP035
 
@@ -322,7 +321,7 @@ def get_metrics() -> MetricsResponse:
     )
 
 
-# Discord webhook AQI notifications (docs/discord_webhook_aqi_spec.md)
+# Discord webhook AQI notifications: one daily summary of four regional stations
 
 VALID_AQI_STATUSES = (
     "良好",
@@ -333,8 +332,26 @@ VALID_AQI_STATUSES = (
     "危害",
 )
 UNKNOWN_AQI_STATUS = "未知"
+OUTDOOR_ADVICE = {
+    "良好": "適合戶外活動",
+    "普通": "可正常出門，極特殊敏感者留意",
+    "對敏感族群不健康": "敏感族群減少戶外活動，建議戴口罩",
+    "對所有族群不健康": "減少戶外活動，出門戴口罩",
+    "非常不健康": "避免外出，關閉門窗",
+    "危害": "留在室內，避免任何戶外活動",
+}
+UNKNOWN_OUTDOOR_ADVICE = "資料不足，請參考官方資訊"
+
+# (region, county, sitename)
+REPRESENTATIVE_STATIONS = (
+    ("北部", "臺北市", "中山"),
+    ("中部", "臺中市", "西屯"),
+    ("南部", "高雄市", "前金"),
+    ("東部", "花蓮縣", "花蓮"),
+)
+SUMMARY_SCOPE = "四區摘要"
+
 DC_WEBHOOK_LOG_FILE = "dc_webhook.log"
-DISCORD_SEND_INTERVAL_SECONDS = 1
 DISCORD_TIMEOUT_SECONDS = 10
 PUBLISH_TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
@@ -380,6 +397,10 @@ def _format_status(value: Any) -> str:
     return UNKNOWN_AQI_STATUS
 
 
+def _get_outdoor_advice(status: str) -> str:
+    return OUTDOOR_ADVICE.get(status, UNKNOWN_OUTDOOR_ADVICE)
+
+
 def get_latest_notification_batch() -> list[dict[str, Any]]:
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
@@ -412,7 +433,6 @@ def get_latest_notification_batch() -> list[dict[str, Any]]:
 
 
 def write_log(
-    county: str,
     publish_time: str,
     http_status: int | None,
     error: str | None = None,
@@ -420,7 +440,7 @@ def write_log(
     logger = _get_webhook_logger()
     status_code = "N/A" if http_status is None else str(http_status)
     message = (
-        f"county={county} | publish_time={publish_time} | "
+        f"scope={SUMMARY_SCOPE} | publish_time={publish_time} | "
         f"status={'FAILED' if error else 'SUCCESS'} | http_status={status_code}"
     )
     if error:
@@ -429,52 +449,48 @@ def write_log(
         logger.info(message)
 
 
-def validate_data(
+def select_representatives(
     air_quality_data: list[Mapping[str, Any]],
-) -> list[Mapping[str, Any]]:
+) -> list[tuple[str, str, Mapping[str, Any] | None]]:
+    records_by_station = {
+        (str(record.get("county") or "").strip(),
+         str(record.get("sitename") or "").strip()): record
+        for record in air_quality_data
+    }
+
     logger = _get_webhook_logger()
-    valid_records = []
-    for record in air_quality_data:
-        county = record.get("county")
-        sitename = record.get("sitename")
-        publish_time = _format_publish_time(record.get("publishtime"))
-        if _is_blank(county):
+    representatives = []
+    for region, county, sitename in REPRESENTATIVE_STATIONS:
+        record = records_by_station.get((county, sitename))
+        if record is None:
             logger.error(
-                f"county=N/A | publish_time={publish_time} | "
-                f"sitename={_to_text(sitename) or 'N/A'} | "
-                "status=INVALID_RECORD | error=Missing county"
+                f"region={region} | county={county} | sitename={sitename} | "
+                "status=MISSING_STATION | error=Station not found in batch"
             )
-            continue
-        if _is_blank(sitename):
-            logger.error(
-                f"county={county} | publish_time={publish_time} | "
-                "sitename=N/A | status=INVALID_RECORD | error=Missing sitename"
-            )
-            continue
-        valid_records.append(record)
-    return valid_records
-
-
-def group_by_county(
-    records: list[Mapping[str, Any]],
-) -> dict[str, list[Mapping[str, Any]]]:
-    groups: dict[str, list[Mapping[str, Any]]] = {}
-    for record in records:
-        groups.setdefault(str(record["county"]).strip(), []).append(record)
-    return groups
+        representatives.append((region, sitename, record))
+    return representatives
 
 
 def build_discord_message(
-    county: str,
-    records: list[Mapping[str, Any]],
+    representatives: list[tuple[str, str, Mapping[str, Any] | None]],
 ) -> str:
-    publish_time = _format_publish_time(records[0].get("publishtime"))
-    lines = [
-        f"{record['sitename']}｜AQI {_format_aqi(record.get('aqi'))}｜"
-        f"{_format_status(record.get('status'))}"
-        for record in records
-    ]
-    return f"【{county} 空氣品質】\n\n更新時間：{publish_time}\n\n" + "\n".join(lines)
+    publish_time = next(
+        _format_publish_time(record.get("publishtime"))
+        for _, _, record in representatives
+        if record is not None
+    )
+
+    lines = []
+    for region, sitename, record in representatives:
+        if record is None:
+            lines.append(f"{region}｜{sitename}｜無資料")
+            continue
+        status = _format_status(record.get("status"))
+        lines.append(
+            f"{region}｜{sitename}｜AQI {_format_aqi(record.get('aqi'))}｜"
+            f"{status}｜{_get_outdoor_advice(status)}"
+        )
+    return f"【四區空氣品質】\n更新時間：{publish_time}\n\n" + "\n".join(lines)
 
 
 def send_webhook(webhook_url: str, content: str) -> tuple[int | None, str | None]:
@@ -500,28 +516,23 @@ def send_webhook(webhook_url: str, content: str) -> tuple[int | None, str | None
     return response.status_code, f"HTTP {response.status_code}"
 
 
-def send_aqi_notifications(
-    air_quality_data: list[Mapping[str, Any]],
-) -> dict[str, int]:
+def send_aqi_notifications(air_quality_data: list[Mapping[str, Any]]) -> bool:
+    representatives = select_representatives(air_quality_data)
+    found = [record for _, _, record in representatives if record is not None]
+    if not found:
+        write_log("N/A", None, "No representative station data")
+        return False
+
+    publish_time = _format_publish_time(found[0].get("publishtime"))
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
-    groups = group_by_county(validate_data(air_quality_data))
+    try:
+        if not webhook_url:
+            http_status, error = None, "DISCORD_WEBHOOK_URL not set"
+        else:
+            content = build_discord_message(representatives)
+            http_status, error = send_webhook(webhook_url, content)
+    except Exception as exc:
+        http_status, error = None, type(exc).__name__
 
-    result = {"sent": 0, "failed": 0}
-    for index, (county, records) in enumerate(groups.items()):
-        if index > 0:
-            time.sleep(DISCORD_SEND_INTERVAL_SECONDS)
-
-        publish_time = _format_publish_time(records[0].get("publishtime"))
-        try:
-            if not webhook_url:
-                http_status, error = None, "DISCORD_WEBHOOK_URL not set"
-            else:
-                content = build_discord_message(county, records)
-                http_status, error = send_webhook(webhook_url, content)
-        except Exception as exc:
-            http_status, error = None, type(exc).__name__
-
-        write_log(county, publish_time, http_status, error)
-        result["failed" if error else "sent"] += 1
-
-    return result
+    write_log(publish_time, http_status, error)
+    return error is None
